@@ -55,7 +55,7 @@ See [release schedule](./upcoming-releases.md#release-schedule).
 
 !!! note
     This section explains how to configure an on-premise instance of PostgreSQL
-    to work with Teleport Database access. For information about configuring
+    to work with Teleport Database Access. For information about configuring
     AWS RDS/Aurora see the [section below](#aws-rdsaurora-postgresql).
 
 #### Create Certificate/Key Pair
@@ -115,7 +115,7 @@ in PostgreSQL documentation for more details.
 
 !!! note
     This section explains how to configure a PostgreSQL-flavored instance of
-    AWS RDS or Aurora database to work with Teleport database access. For
+    AWS RDS or Aurora database to work with Teleport Database Access. For
     information about configuring an on-prem PostgreSQL see the [section above](#on-prem-postgresql).
 
 Teleport Database Access for AWS RDS and Aurora uses IAM authentication which
@@ -229,7 +229,7 @@ $ teleport start -d \
 
 Note that the `--auth-server` flag must point to cluster's proxy endpoint
 because database service always connects back to the cluster over reverse
-tunnel framework.
+tunnel.
 
 Instead of using a static auth token, a short-lived dynamic token can also
 be generated for a database service:
@@ -244,7 +244,7 @@ $ tctl tokens add \
 
 ### Start Database Service with Config File
 
-Below is the example of a database service configuration file that proxies
+Below is an example of a database service configuration file that proxies
 a single AWS Aurora database:
 
 ```yaml
@@ -261,7 +261,7 @@ teleport:
 db_service:
   enabled: "yes"
   # This section contains definitions of all databases proxied by this
-  # service, can contain multiple.
+  # service, can contain multiple items.
   databases:
     # Name of the database proxy instance, used to reference in CLI.
   - name: "aurora"
@@ -288,8 +288,8 @@ proxy_service:
 
 !!! tip
     Single Teleport process can run multiple different services, for example
-    multiple database access proxies as well as run other services such as
-    SSH service and application access proxy.
+    multiple database access proxies as well as run other services such an
+    SSH service or an application access proxy.
 
 Start the database service:
 
@@ -335,8 +335,8 @@ $ tsh db login aurora
 !!! tip
     You can be logged into multiple databases simultaneously.
 
-You can optionally also specify default database name and user to use when
-connecting to the database instance:
+You can optionally also specify the database name and the user to use by
+default when connecting to the database instance:
 
 ```sh
 $ tsh db login --db-user=postgres --db-name=postgres aurora
@@ -368,7 +368,7 @@ $ tsh db logout
 ## RBAC
 
 Teleport's "role" resource provides the following instruments for restricting
-the database access:
+database access:
 
 ```yaml
 kind: role
@@ -382,9 +382,9 @@ spec:
     # service.
     db_labels:
       environment: ["dev", "stage"]
-    # Database names this role has connect to. Note: this is not the same as
-    # the "name" field in "db_service", this is the database names within a
-    # particular database instance.
+    # Database names this role will be able to connect to. Note: this is not
+    # the same as the "name" field in "db_service", this is the database names
+    # within a particular database instance.
     db_names: ["main", "metrics", "postgres"]
     # Database users this role can connect as.
     db_users: ["alice", "bob"]
@@ -400,7 +400,7 @@ spec:
     db_users: ["{% raw %}{{internal.db_users}}{% endraw %}", "{% raw %}{{external.yyy}}{% endraw %}"]
 ```
 
-See general [RBAC](/enterprise/ssh-rbac) documentation for more details.
+See general [RBAC](../enterprise/ssh-rbac.md) documentation for more details.
 
 ## Demo
 
