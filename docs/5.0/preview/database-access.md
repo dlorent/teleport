@@ -42,7 +42,7 @@ The following diagram shows an example Database Access setup:
 
 ![Teleport database access diagram](../img/dbaccess.svg)
 
-## Schedule
+## Release Schedule
 
 Teleport Database Access is under active development. The alpha release will
 include support for PostgreSQL, including Amazon RDS and Aurora.
@@ -51,24 +51,26 @@ See [release schedule](./upcoming-releases.md#release-schedule).
 
 ## Configure PostgreSQL
 
-### On-Prem PostgreSQL
+### Self-Hosted PostgreSQL
 
 !!! note
-    This section explains how to configure an on-premise instance of PostgreSQL
+    This section explains how to configure a self-hosted instance of PostgreSQL
     to work with Teleport Database Access. For information about configuring
     AWS RDS/Aurora see the [section below](#aws-rdsaurora-postgresql).
 
 #### Create Certificate/Key Pair
 
-Teleport uses mutual TLS authentication so PostgreSQL server must be configured
-with Teleport's certificate authority and certificate/key pair that Teleport
-can validate.
+Teleport uses mutual TLS for authentication to PostgreSQL instances. As such,
+self-hosted PostgreSQL instances must be configured with Teleport's certificate
+authority and a certificate/key pair that Teleport can validate.
 
 To create these secrets, use `tctl auth sign` command. Note that it requires a
 running Teleport cluster and [should be run](https://goteleport.com/teleport/docs/architecture/overview/#tctl)
 on the auth server.
 
 ```sh
+# Export Teleport's certificate authority and generate certificate/key pair
+# for host db.example.com with a one year validity period.
 $ tctl auth sign --format=db --host=db.example.com --out=server --ttl=8760h
 ```
 
@@ -83,6 +85,11 @@ Flag descriptions:
 
 The command will create 3 files: `server.cas` with Teleport's certificate
 authority and `server.crt`/`server.key` with generated certificate/key pair.
+
+!!! note "Certificate Rotation"
+    Teleport signs database certificates with the host authority. As such,
+    when performing [host certificates rotation](../admin-guide.md#certificate-rotation),
+    the database certificates must be updated as well.
 
 #### Configure PostgreSQL Server
 
@@ -116,7 +123,7 @@ in PostgreSQL documentation for more details.
 !!! note
     This section explains how to configure a PostgreSQL-flavored instance of
     AWS RDS or Aurora database to work with Teleport Database Access. For
-    information about configuring an on-prem PostgreSQL see the [section above](#on-prem-postgresql).
+    information about configuring a self-hosted PostgreSQL see the [section above](#self-hosted-postgresql).
 
 Teleport Database Access for AWS RDS and Aurora uses IAM authentication which
 can be enabled with the following steps.
@@ -153,6 +160,21 @@ database service will be using, for example:
 }
 ```
 
+The resource ARN in the policy has the following format:
+
+```
+arn:aws:rds-db:<region>:<account-id>:dbuser:<db-cluster-resource-id>/<db-user-name>
+```
+
+Parameters:
+
+* `region`: AWS region where the database cluster is deployed.
+* `account-id`: AWS account number the database cluster is deployed under.
+* `db-cluster-resource-id`: identifier for the database cluster, can be found
+  under Configuration section in the RDS control panel.
+* `db-user-name`: name of the database account to associate with IAM
+  authentication. Can be a wildcard.
+
 See [Creating and using an IAM policy for IAM database access](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html)
 for more information.
 
@@ -171,14 +193,14 @@ for more information.
 
 ## Configure Teleport
 
-First, head over to the Teleport [downloads page](https://gravitational.com/teleport/download/)
+First, head over to the Teleport [downloads page](https://goteleport.com/teleport/download/)
 and download the latest version of Teleport.
 
 !!! warning
     As of this writing, no Teleport release with Database Access has been
     published yet.
 
-Follow the installation [instructions](https://gravitational.com/teleport/docs/installation/).
+Follow the installation [instructions](installation.md).
 
 ### Start Auth/Proxy Service
 
@@ -228,7 +250,7 @@ $ teleport start -d \
 ```
 
 Note that the `--auth-server` flag must point to cluster's proxy endpoint
-because database service always connects back to the cluster over reverse
+because database service always connects back to the cluster over a reverse
 tunnel.
 
 Instead of using a static auth token, a short-lived dynamic token can also
@@ -287,8 +309,8 @@ proxy_service:
 ```
 
 !!! tip
-    Single Teleport process can run multiple different services, for example
-    multiple database access proxies as well as run other services such an
+    A single Teleport process can run multiple different services, for example
+    multiple database access proxies as well as running other services such an
     SSH service or an application access proxy.
 
 Start the database service:
@@ -301,11 +323,11 @@ $ teleport start -d --config=/path/to/teleport-db.yaml
 
 When setting up Teleport database service with AWS RDS or Aurora, it must have
 an IAM role allowing it to connect to that particular database instance. An
-example of such policy is shown in the [AWS RDS/Aurora](#aws-rdsaurora-postgresql)
+example of such a policy is shown in the [AWS RDS/Aurora](#aws-rdsaurora-postgresql)
 section above. See [Creating and using an IAM policy for IAM database access](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html)
 in AWS documentation.
 
-Teleport database service uses default credential provider chain to find AWS
+Teleport database service uses the default credential provider chain to find AWS
 credentials. See [Specifying Credentials](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials)
 for more information.
 
@@ -335,8 +357,8 @@ $ tsh db login aurora
 !!! tip
     You can be logged into multiple databases simultaneously.
 
-You can optionally also specify the database name and the user to use by
-default when connecting to the database instance:
+You can optionally specify the database name and the user to use by default
+when connecting to the database instance:
 
 ```sh
 $ tsh db login --db-user=postgres --db-name=postgres aurora
@@ -390,6 +412,28 @@ spec:
     db_users: ["alice", "bob"]
 ```
 
+It is possible to use wildcards to match any database names/users. For example,
+the following role permits access to any database/user within a production
+database except for the internal "postgres" database/user:
+
+```yaml
+kind: role
+version: v3
+metadata:
+  name: developer
+spec:
+  allow:
+    db_labels:
+      environment: ["dev", "prod"]
+    db_names: ["*"]
+    db_users: ["*"]
+  deny:
+    db_labels:
+      environment: ["dev", "prod"]
+    db_names: ["postgres"]
+    db_users: ["postgres"]
+```
+
 Similar to other role fields, these support templating variables to allow
 propagating information from identity providers:
 
@@ -418,7 +462,7 @@ The following PostgreSQL protocol features aren't currently supported:
   Cancel requests issued by the PostgreSQL clients connected to Teleport proxy
   won't be passed to the database server.
 * Any of the [authentication methods](https://www.postgresql.org/docs/current/auth-methods.html)
-  except for the client certificate authentication.
+  except for client certificate authentication.
 
 ## Demo
 
@@ -430,7 +474,7 @@ Your browser does not support the video tag.
 
 ## RFD
 
-Please refer to the [RFD document](https://github.com/gravitational/teleport/blob/master/rfd/0011-database-access.md)
+Please refer to the [RFD document](https://github.com/gravitational/teleport/blob/024fd582e62560ffc925cd4b4d42c156043c041b/rfd/0011-database-access.md)
 for a more in-depth description of the feature scope and design.
 
 ## Feedback
