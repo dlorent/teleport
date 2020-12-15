@@ -200,7 +200,7 @@ and download the latest version of Teleport.
     As of this writing, no Teleport release with Database Access has been
     published yet.
 
-Follow the installation [instructions](installation.md).
+Follow the installation [instructions](../installation.md).
 
 ### Start Auth/Proxy Service
 
